@@ -12,7 +12,7 @@ router = Router(name="admin")
 @router.message(Command("captcha"))
 async def cmd_captcha(message: Message, command: CommandObject) -> None:
     """/captcha on|off — включить/выключить капчу вручную для текущего чата."""
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
     arg = (command.args or "").strip().lower()
     if arg not in ("on", "off"):
@@ -27,7 +27,7 @@ async def cmd_captcha(message: Message, command: CommandObject) -> None:
 @router.message(Command("captcha_auto"))
 async def cmd_captcha_auto(message: Message) -> None:
     """/captcha_auto — вернуть капчу под автоматическое управление антирейдом."""
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
     await logic.set_captcha_auto(message.chat.id)
     await message.reply("Ок, капчей теперь снова управляет антирейд-система автоматически.")
@@ -36,7 +36,7 @@ async def cmd_captcha_auto(message: Message) -> None:
 @router.message(Command("raid_status"))
 async def cmd_raid_status(message: Message) -> None:
     """/raid_status — текущее состояние защиты в этом чате."""
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
     await message.reply(await logic.status_text(message.chat.id))
 
@@ -44,7 +44,7 @@ async def cmd_raid_status(message: Message) -> None:
 @router.message(Command("raid_off"))
 async def cmd_raid_off(message: Message) -> None:
     """/raid_off — досрочно снять авто-режим рейда (вернуть капчу как было до него)."""
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
     was_active = await logic.turn_off_raid(message.chat.id)
     if was_active:

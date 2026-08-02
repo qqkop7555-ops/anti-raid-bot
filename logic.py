@@ -9,6 +9,29 @@ def is_admin(user_id: int | None) -> bool:
     return user_id is not None and user_id in config.admin_ids
 
 
+async def require_admin(message) -> bool:
+    """Проверяет права и, если их нет, объясняет причину (вместо тихого игнора).
+    Возвращает True, если можно продолжать выполнение команды."""
+    user_id = message.from_user and message.from_user.id
+    if is_admin(user_id):
+        return True
+
+    if not config.admin_ids:
+        await message.reply(
+            "⛔ Команда только для админа, но переменная ADMIN_IDS в Railway сейчас пустая — "
+            "поэтому админом не считается вообще никто.\n"
+            f"Твой Telegram ID: <code>{user_id}</code>\n"
+            "Добавь его в ADMIN_IDS (Settings → Variables на Railway) и сделай Redeploy."
+        )
+    else:
+        await message.reply(
+            f"⛔ Эта команда только для админа. Твой Telegram ID: <code>{user_id}</code>\n"
+            "Если это должен быть ты — проверь, что этот ID указан в ADMIN_IDS на Railway "
+            "(без лишних пробелов), и сделай Redeploy."
+        )
+    return False
+
+
 async def set_captcha(chat_id: int, enabled: bool) -> None:
     async with Session() as session:
         settings = await get_or_create_settings(session, chat_id)

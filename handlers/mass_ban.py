@@ -65,7 +65,7 @@ def _parse_id_list(text: str) -> tuple[list[int], int]:
 
 @router.message(F.chat.type == ChatType.PRIVATE, Command("mass_ban"))
 async def cmd_mass_ban(message: Message, command: CommandObject) -> None:
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
 
     arg = (command.args or "").strip()
@@ -125,7 +125,7 @@ async def handle_mass_ban_file(message: Message, bot: Bot) -> None:
 
 @router.message(F.chat.type == ChatType.PRIVATE, Command("cancel_mass_ban"))
 async def cmd_cancel_mass_ban(message: Message) -> None:
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
     user_id = message.from_user.id
     had_pending = state.pending_mass_ban.pop(user_id, None) is not None
@@ -135,7 +135,7 @@ async def cmd_cancel_mass_ban(message: Message) -> None:
 
 @router.message(F.chat.type == ChatType.PRIVATE, Command("confirm_mass_ban"))
 async def cmd_confirm_mass_ban(message: Message, bot: Bot) -> None:
-    if not logic.is_admin(message.from_user and message.from_user.id):
+    if not await logic.require_admin(message):
         return
 
     user_id = message.from_user.id
