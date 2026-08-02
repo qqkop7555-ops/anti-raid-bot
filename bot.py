@@ -71,7 +71,10 @@ async def main() -> None:
     dp.include_router(gatekeeper.router)
     dp.include_router(mass_ban.router)
 
-    dp.startup.register(lambda **kw: asyncio.create_task(raid_expiry_watcher(bot)))
+    async def _on_startup(**_kwargs) -> None:
+        asyncio.create_task(raid_expiry_watcher(bot))
+
+    dp.startup.register(_on_startup)
 
     app = create_app(bot, WEBAPP_DIR)
     SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=config.webhook_secret).register(app, path=WEBHOOK_PATH)
