@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Проверка</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <main class="card" id="card">
+    <div class="gift-icon" id="giftIcon">💎</div>
+
+    <div id="loading" class="state">
+      <div class="spinner"></div>
+      <p class="muted">Загружаем проверку…</p>
+    </div>
+
+    <div id="challenge" class="state hidden">
+      <h1>Подтверди, что ты человек</h1>
+      <p class="muted" id="chatTitle"></p>
+
+      <div class="question" id="question">?</div>
+
+      <div class="options" id="options"></div>
+
+      <p class="hint">Выбери правильный ответ</p>
+    </div>
+
+    <div id="success" class="state hidden">
+      <div class="check">✓</div>
+      <h1>Готово!</h1>
+      <p class="muted" id="successText">Проверка пройдена.</p>
+      <a id="actionLink" class="btn hidden" target="_blank" rel="noopener">Открыть канал</a>
+    </div>
+
+    <div id="error" class="state hidden">
+      <div class="check err">✕</div>
+      <h1>Не вышло</h1>
+      <p class="muted" id="errorText">Что-то пошло не так.</p>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
