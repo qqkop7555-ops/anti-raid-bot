@@ -19,6 +19,7 @@ import re
 import time
 
 from aiogram import Bot, F, Router
+from aiogram.enums import ChatType
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -61,28 +62,60 @@ def _confirm_keyboard() -> InlineKeyboardMarkup:
     ]])
 
 
+async def _resolve_chat_id(bot: Bot, raw: str) -> int | None:
+    """'@channel' / 'channel' / числовой id -> реальный chat_id (через Bot API)."""
+    raw = raw.strip()
+    if not raw.startswith("@") and not raw.lstrip("-").isdigit():
+        raw = f"@{raw}"
+    try:
+        chat = await bot.get_chat(raw)
+        return chat.id
+    except TelegramAPIError:
+        return None
+
+
 @router.message(Command("ban_recent"))
-async def cmd_ban_recent(message: Message, command: CommandObject) -> None:
+async def cmd_ban_recent(message: Message, bot: Bot, command: CommandObject) -> None:
     if not await logic.require_admin(message):
         return
 
-    arg = (command.args or "").strip()
-    hours = parse_duration_hours(arg) if arg else None
+    parts = (command.args or "").strip().split(maxsplit=1)
+    usage = (
+        "Используй: /ban_recent <время> [чат]\n"
+        "Например: /ban_recent 14h  (прямо в группе — почистит текущий чат)\n"
+        "или: /ban_recent 14h @infoaboutqq  (из личных сообщений — почистит указанный канал)"
+    )
+
+    if not parts:
+        await message.reply(usage)
+        return
+
+    hours = parse_duration_hours(parts[0])
     if hours is None:
+        await message.reply(usage)
+        return
+
+    if len(parts) >= 2:
+        chat_id = await _resolve_chat_id(bot, parts[1])
+        if chat_id is None:
+            await message.reply(f"Не смог найти чат {parts[1]!r} — проверь юзернейм/ID и что бот туда добавлен.")
+            return
+    elif message.chat.type != ChatType.PRIVATE:
+        chat_id = message.chat.id
+    else:
         await message.reply(
-            "Используй: /ban_recent <время>\n"
-            "Например: /ban_recent 14h  или  /ban_recent 30m  или  /ban_recent 2d"
+            "В личных сообщениях нужно явно указать канал/группу:\n"
+            "/ban_recent 14h @infoaboutqq"
         )
         return
 
-    chat_id = message.chat.id
     since_ts = int(time.time()) - int(hours * 3600)
 
     members = await db.list_members_since(chat_id, since_ts)
     candidate_ids = [m.user_id for m in members if not logic.is_admin(m.user_id)]
 
     if not candidate_ids:
-        await message.reply(f"За последние {arg} никто не вступал (по данным бота) — банить некого.")
+        await message.reply(f"За последние {parts[0]} в этом чате никто не вступал (по данным бота) — банить некого.")
         return
 
     state.pending_ban_recent[message.from_user.id] = state.PendingBanRecent(
@@ -90,7 +123,7 @@ async def cmd_ban_recent(message: Message, command: CommandObject) -> None:
     )
 
     await message.reply(
-        f"Будет забанено {len(candidate_ids)} человек, вступивших за последние {arg}.\n"
+        f"Будет забанено {len(candidate_ids)} человек, вступивших за последние {parts[0]}.\n"
         f"Учтены только те, кого бот сам видел через события вступления — если бот подключили "
         f"недавно, более старые участники в эту статистику не попадут.",
         reply_markup=_confirm_keyboard(),
