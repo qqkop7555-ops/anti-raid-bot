@@ -18,7 +18,14 @@ router = Router(name="antiflood")
 _recent: dict[tuple[int, int], list[tuple[float, str]]] = defaultdict(list)
 
 
-@router.message(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}), F.text | F.caption)
+def _not_a_command(message: Message) -> bool:
+    """Команды (/что-то) не должны попадать под антифлуд — иначе они «съедаются» здесь
+    и не доходят до хендлеров admin/mass_ban/ban_recent, зарегистрированных позже."""
+    text = message.text or message.caption or ""
+    return not text.startswith("/")
+
+
+@router.message(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}), F.text | F.caption, _not_a_command)
 async def check_flood(message: Message, bot: Bot) -> None:
     if message.from_user is None or message.from_user.is_bot:
         return
