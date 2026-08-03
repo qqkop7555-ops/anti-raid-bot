@@ -30,8 +30,6 @@ def _webapp_button(token: str) -> InlineKeyboardMarkup:
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, bot: Bot, command: CommandObject) -> None:
-    await message.answer("привет")  # быстрая проверка, что бот вообще отвечает в этом чате
-
     payload = (command.args or "").strip()
 
     if message.chat.type == ChatType.PRIVATE and payload.startswith(VERIFY_PAYLOAD_PREFIX):
