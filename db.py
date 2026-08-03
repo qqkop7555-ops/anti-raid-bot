@@ -187,6 +187,17 @@ async def list_members(chat_id: int, offset: int, limit: int) -> list[WatchedMem
         return list(result.scalars())
 
 
+async def list_members_since(chat_id: int, since_ts: int) -> list[WatchedMember]:
+    """Все, кто вступил не раньше since_ts (unix timestamp) — для массового бана недавних."""
+    async with Session() as session:
+        result = await session.execute(
+            select(WatchedMember)
+            .where(WatchedMember.chat_id == chat_id, WatchedMember.joined_at >= since_ts)
+            .order_by(WatchedMember.joined_at.desc())
+        )
+        return list(result.scalars())
+
+
 async def search_members(chat_id: int, query: str, offset: int, limit: int) -> tuple[list[WatchedMember], int]:
     like = f"%{query}%"
     cond = (WatchedMember.chat_id == chat_id) & (

@@ -77,3 +77,17 @@ awaiting_mass_ban_file: dict[int, int | str] = {}
 
 # user_id -> PendingMassBan — файл распознан, ждём подтверждения (или отмены) перед реальным баном
 pending_mass_ban: dict[int, PendingMassBan] = {}
+
+
+@dataclass
+class PendingBanRecent:
+    """Ждём подтверждения /да /нет на бан всех, кто вступил за последние N часов."""
+
+    chat_id: int
+    since_ts: int
+    hours: float
+    user_ids: list[int]  # кого именно баним (зафиксировано на момент запроса, не пересчитывается)
+
+
+# admin_user_id -> PendingBanRecent
+pending_ban_recent: dict[int, PendingBanRecent] = {}

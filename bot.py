@@ -14,7 +14,7 @@ import logic
 import verification
 from config import config
 from db import ChatSettings, Session, init_db
-from handlers import admin, antiflood, gatekeeper, joins, mass_ban, requests, start
+from handlers import admin, antiflood, ban_recent, gatekeeper, joins, mass_ban, requests, start
 from dashboard import router as dashboard_router
 from server import create_app
 
@@ -70,6 +70,7 @@ async def main() -> None:
     dp.include_router(antiflood.router)
     dp.include_router(gatekeeper.router)
     dp.include_router(mass_ban.router)
+    dp.include_router(ban_recent.router)
 
     async def _on_startup(**_kwargs) -> None:
         asyncio.create_task(raid_expiry_watcher(bot))
