@@ -131,6 +131,8 @@ async def render_chat(chat_id: int) -> tuple[str, InlineKeyboardMarkup] | None:
     if settings.chat_type == "channel":
         rows.append([InlineKeyboardButton(text="🔗 Ссылка для входа через бота", callback_data=f"dash:chat:{chat_id}:get_link")])
 
+    rows.append([InlineKeyboardButton(text="🕐 Забанить по времени", callback_data=f"dash:banrecent_menu:{chat_id}")])
+
     rows.append([InlineKeyboardButton(text=f"👥 Участники ({members_count})", callback_data=f"dash:members:{chat_id}:0"),
                  InlineKeyboardButton(text=f"🚫 Забаненные ({bans_count})", callback_data=f"dash:bans:{chat_id}:0")])
     rows.append([InlineKeyboardButton(text="📈 Статистика", callback_data=f"dash:stats:{chat_id}"),
@@ -139,6 +141,27 @@ async def render_chat(chat_id: int) -> tuple[str, InlineKeyboardMarkup] | None:
         InlineKeyboardButton(text="🔙 К списку", callback_data=f"dash:cat:{settings.chat_type}:0"),
         InlineKeyboardButton(text="🏠 Главное меню", callback_data="dash:root"),
     ])
+    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+BAN_RECENT_PRESETS = [
+    ("30 мин", 0.5), ("1 час", 1), ("2 часа", 2),
+    ("6 часов", 6), ("12 часов", 12), ("24 часа", 24),
+]
+
+
+async def render_banrecent_menu(chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
+    rows = []
+    for label, hours in BAN_RECENT_PRESETS:
+        rows.append([InlineKeyboardButton(
+            text=f"🕐 {label}", callback_data=f"dash:banrecent_pick:{chat_id}:{hours}",
+        )])
+    rows.append([InlineKeyboardButton(text="🔙 К чату", callback_data=f"dash:chat:{chat_id}")])
+    text = (
+        "Забанить всех, кто вступил за выбранное время.\n\n"
+        "Учитываются только те, кого бот сам видел через события вступления — "
+        "если бота подключили недавно, более старые участники сюда не попадут."
+    )
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -478,6 +501,51 @@ async def cb_chat(call: CallbackQuery, bot: Bot) -> None:
         return
     text, kb = result
     await _safe_edit(call, text, kb)
+
+
+@router.callback_query(F.data.startswith("dash:banrecent_menu:"))
+async def cb_banrecent_menu(call: CallbackQuery) -> None:
+    if not logic.is_admin(call.from_user.id):
+        await call.answer("Только для владельца.", show_alert=True)
+        return
+    chat_id = int(call.data.split(":")[2])
+    text, kb = await render_banrecent_menu(chat_id)
+    await _safe_edit(call, text, kb)
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("dash:banrecent_pick:"))
+async def cb_banrecent_pick(call: CallbackQuery) -> None:
+    if not logic.is_admin(call.from_user.id):
+        await call.answer("Только для владельца.", show_alert=True)
+        return
+
+    _, _, chat_id_str, hours_str = call.data.split(":")
+    chat_id = int(chat_id_str)
+    hours = float(hours_str)
+
+    since_ts = int(time.time()) - int(hours * 3600)
+    members = await db.list_members_since(chat_id, since_ts)
+    candidate_ids = [m.user_id for m in members if not logic.is_admin(m.user_id)]
+
+    if not candidate_ids:
+        await call.answer("За это время никто не вступал — банить некого.", show_alert=True)
+        return
+
+    state.pending_ban_recent[call.from_user.id] = state.PendingBanRecent(
+        chat_id=chat_id, since_ts=since_ts, hours=hours, user_ids=candidate_ids,
+    )
+
+    label = next((lbl for lbl, h in BAN_RECENT_PRESETS if h == hours), f"{hours:g} ч")
+    confirm_kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Да", callback_data="ban_recent:yes"),
+        InlineKeyboardButton(text="Нет", callback_data="ban_recent:no"),
+    ]])
+    await call.answer()
+    await call.message.edit_text(
+        f"Будет забанено {len(candidate_ids)} человек, вступивших за последние {label}.",
+        reply_markup=confirm_kb,
+    )
 
 
 @router.callback_query(F.data.startswith("dash:members:"))
